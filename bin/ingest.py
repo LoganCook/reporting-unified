@@ -33,6 +33,7 @@ logger = logging.getLogger('reporting-ingest')
 
 DEBUG = True
 
+
 # TODO: move to another place for better sharing with other packages
 class HCP:
     def __init__(self, aws_id, aws_secret, server, bucket):
@@ -112,11 +113,10 @@ class Ingester:
 
     def _put(self, name, data):
         return requests.put("%s/ingest?name=%s" % (self.endpoint, name),
-                      headers={
-                          "content-type": "application/json",
-                          "x-ersa-auth-token": self.token
-                      },
-                      data=json.dumps(data))
+                            headers={
+                                "content-type": "application/json",
+                                "x-ersa-auth-token": self.token},
+                            data=json.dumps(data))
 
     def fetch(self, name):
         logger.debug("Retrieve and decompress %s from HCP" % name)
@@ -126,22 +126,25 @@ class Ingester:
         """List the ingested messages files in input table of database through API server"""
         page = 1
         names = []
+        SIZE = 5000   # page size
 
         while True:
-            url = "%s/input?count=5000&page=%s" % (self.endpoint, page)
+            url = "%s/input?count=%d&page=%s" % (self.endpoint, SIZE, page)
             batch = requests.get(url, headers={"x-ersa-auth-token": self.token})
-            # This is for back compatibility
+            # This is for back compatibility in case 404 for no data
             if batch.status_code == 404:
                 break
             elif batch.status_code != 200:
                 raise IOError("HTTP %s" % batch.status_code)
 
-            # batch.status_code == 200 but with empty result
+            # new code always has status_code == 200 but json can be empty list
             records = batch.json()
             if len(records) > 0:
                 names += [item["name"] for item in batch.json()]
                 logger.debug("%d page loaded" % page)
                 page += 1
+                if len(records) < SIZE:
+                    break
             else:
                 break
 
@@ -152,12 +155,11 @@ class Ingester:
         # The list can be very long if prefix is not used
         logger.debug("Getting list of archived packages of messages from database through API")
         ingested = self.list_ingested()
-        ingested= set(ingested)
+        ingested = set(ingested)
 
         logger.debug("Get list of archived packages of messages from object store")
-        all_items = [item.name
-             for item in self.hcp.items(prefix=self.prefix)
-             if not item.name.endswith("/")]
+        all_items = [item.name for item in self.hcp.items(prefix=self.prefix)
+                     if not item.name.endswith("/")]
 
         if self.substring:
             all_items = [item for item in all_items if self.substring in item]
@@ -167,7 +169,7 @@ class Ingester:
         todo = list(all_items - ingested)
 
         logger.info("%s objects, %s already ingested, %s todo" %
-              (len(all_items), len(ingested.intersection(all_items)), len(todo)))
+                    (len(all_items), len(ingested.intersection(all_items)), len(todo)))
 
         return todo
 
@@ -207,6 +209,7 @@ class Ingester:
         else:
             self.put_single_xz(xz_name, input_name)
 
+
 def read_conf(path):
     # Check that the configuration file exists
     if not os.path.isfile(path):
@@ -216,9 +219,10 @@ def read_conf(path):
         conf = json.load(f)
     return conf
 
+
 def parse_command(description='Ingest records from HCP to Database through API server'):
     parser = ArgumentParser(description=description)
     parser.add_argument('conf', default='config.json',
-        help='Path to config.json. Default = config.json')
+                        help='Path to config.json. Default = config.json')
     args = parser.parse_args()
     return read_conf(args.conf)

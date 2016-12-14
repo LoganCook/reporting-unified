@@ -144,15 +144,21 @@ The script needs `boto` package installed.
 ### Biller script `biller.py` - FIXME with unified models
 
 This script is for generating bills directly. It has a few custom Flask
-commands. For generating Nova bills, it needs credential for accessing
+commands. It needs environment variables: `APP_SETTINGS` and `FLASK_APP`.
+For generating Nova bills, it needs credential for accessing
 Nectar Keystone (not from reporting database). As with other API
 applications, the `config.py` should have all keys in those applications,
-and at least these two keys:
+and at least these three keys:
 
 ```python
 
 NECTAR_USER = "username"
 NECTAR_USER_PASS = "password"
+SQLALCHEMY_BINDS = {
+    "keystone": "postgresql://apiuser:password@host/keystone-db"
+}
+
+flask export_tenants flinders.edu.au
 ```
 
 ### Usage script

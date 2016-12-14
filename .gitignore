@@ -59,4 +59,8 @@ target/
 .DS_Store
 
 # Local files
-config.json
+*.json
+*.conf
+*.csv
+*.xlsx
+*~
