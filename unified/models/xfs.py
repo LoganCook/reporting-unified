@@ -180,6 +180,7 @@ class Usage(db.Model):
     """Quota and Usage"""
     id = id_column()
     soft = db.Column(db.BigInteger, nullable=False)
+    # Should quotas be in usage table?
     hard = db.Column(db.BigInteger, nullable=False)
     usage = db.Column(db.BigInteger, nullable=False)
     owner_id = db.Column(None,
@@ -209,22 +210,31 @@ class Usage(db.Model):
 
     @classmethod
     def summarise(cls, start_ts=0, end_ts=0):
-        """"Gets usage from their snapshots between start_ts and end_ts.
+        """"Gets usage per filesystem in the system.
 
-        Maximal usage of the period is returned.
-        Grouped by filesystem.
+        Snapshots filtered by start_ts and end_ts and maxima of matrix are returned.
         """
         id_query = Snapshot.id_between(start_ts, end_ts)
 
-        # 1. soft and hard quotas are not changed very often
-        # 2. Record number of Host, Filesystem and Owner are relatively very small,
         # link them in code to avoid expand usage rows whose number is very very high
-        query = Usage.query.filter(Usage.snapshot_id.in_(id_query)).\
-            group_by(Usage.filesystem_id).\
+        # 1. soft and hard quotas do not change very often
+        # 2. record number of Host, Filesystem and Owner are relatively very small
+
+        # 1. usages of users of one filesystem are added together in each snapshot to create filesystem snapshot
+        # 2. get maxima of matrix of filesystems across snapshots
+        snapshot_query = Usage.query.filter(Usage.snapshot_id.in_(id_query)).\
+            group_by(Usage.filesystem_id, Usage.snapshot_id).\
             with_entities(Usage.filesystem_id,
+                          Usage.snapshot_id,
                           func.max(Usage.soft).label('soft'),
                           func.max(Usage.hard).label('hard'),
-                          func.max(Usage.usage).label('usage'))
+                          func.sum(Usage.usage).label('usage')).subquery()
+        query = db.session.query(snapshot_query).\
+            group_by(snapshot_query.c.filesystem_id).\
+            with_entities(snapshot_query.c.filesystem_id,
+                          func.max(snapshot_query.c.soft).label('soft'),
+                          func.max(snapshot_query.c.hard).label('hard'),
+                          func.max(snapshot_query.c.usage).label('usage'))
 
         fq = Filesystem.query.join(Host).\
             with_entities(Filesystem.id, Host.name, Filesystem.name).all()
@@ -237,7 +247,7 @@ class Usage(db.Model):
 
         for q in query.all():
             hn, fn = file_systems[q[0]]
-            mappings = (hn, fn, q[1], q[2], q[3])
+            mappings = (hn, fn, int(q[1]), int(q[2]), int(q[3]))
             rslt.append(dict(zip(fields, mappings)))
         return rslt
 

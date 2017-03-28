@@ -115,7 +115,7 @@ import os
 os.environ['APP_SETTINGS'] = 'config-xfs.py'
 from unified.models.xfs import Snapshot, Filesystem, Usage, Owner, Host
 start = time.time()
-x = Snapshot.summarise(1452930321, 1452676846)
+x = Snapshot.summarise(1452676846, 1452930321)
 end = time.time()
 print(end - start)
 
