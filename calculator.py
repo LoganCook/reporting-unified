@@ -48,7 +48,7 @@ def read_conf(path):
 
 def set_logger(config):
     """Sets up logger for packages"""
-    LOG_FORMAT = '%(asctime)s %(levelname)s %(lineno)d: %(message)s'
+    LOG_FORMAT = '%(asctime)s %(levelname)s %(filename)s %(module)s.%(funcName)s +%(lineno)d: %(message)s'
     SAN_MS_DATE = '%Y-%m-%d %H:%M:%S'
     LOG_FORMATTER = logging.Formatter(LOG_FORMAT, SAN_MS_DATE)
 

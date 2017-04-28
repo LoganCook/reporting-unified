@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 from abc import ABCMeta, abstractmethod
 
 from unified.models import nova, hpc
+from utils import array_to_dict
 
 
 logger = logging.getLogger(__name__)
@@ -56,12 +57,12 @@ class BmanClient(Client):
     """Client of Bman"""
     def __init__(self, url, token=None):
         super().__init__(url, token)
-        self.organisations = {}
-        # This is from older version of view which uses serilize
-        self.top_orgs = [org['pk'] for org in self.get('/organisation/', {'method': 'get_tops'})]
+        self.organisations = {}  # cache for any organisation(account) name
+        self.top_orgs = [org['id'] for org in self.get('/organisation/', {'method': 'get_tops'})]
 
     def get_parent_org_ids(self, role_id):
         """Gets the organisation names of a role"""
+        # FIXME: Bman for MS Dynamics does not support this feature 20170428
         # A role only has the lowest organisation, for grouping, it needs
         # to be expanded into a full list
         # parents can be more han one at the same level
@@ -77,6 +78,7 @@ class BmanClient(Client):
         return orgs
 
     def get_org_name(self, org_id):
+        # TODO: Bman for MS Dynamics does not support this query yet 20170428
         name = ''
         if org_id in self.organisations:
             name = self.organisations[org_id]
@@ -96,10 +98,11 @@ class BmanClient(Client):
         """
         Gets names of managing organisations of a role
 
-        As service can be billed different to the assoicated organisation,
+        As service can be billed differently to the associated organisation,
         use billing_org_id to make sure for billing purpose, managing
-        oranisations are correct.
+        organisations are correct.
         """
+        # FIXME: This may not be needed for Dynamics as there is no need to get managing org by manager role as for Bman
         names = []
         parent_org_ids = self.get_parent_org_ids(role_id)
         if parent_org_ids:
@@ -129,6 +132,9 @@ class Usage(metaclass=ABCMeta):
         self.start_timestamp = start
         self.end_timestamp = end
         logger.debug("Query arguments: start=%s, end=%s" % (self.start_timestamp, self.end_timestamp))
+        # useage_meta is a dict with keys of the values of usage data's identifier:
+        # for NECTAR, it is OpenstackID, HPC, it is owner
+        self.usage_meta = None
 
     @abstractmethod
     def prepare(self):
@@ -138,10 +144,14 @@ class Usage(metaclass=ABCMeta):
         """
         pass
 
-    @abstractmethod
-    def _get_managing_orgs_of(self, identifier):
-        """Gets names of managing organisation of one entity defined by identifier"""
-        pass
+    def _get_managing_orgs_of(self, identifier, unit_name='managerunit'):
+        """Override parent class method as the usage meta is not from Orders"""
+        managing_orgs = []
+        if identifier in self.usage_meta:
+            managing_orgs = [self.usage_meta[identifier]['biller']]
+            if unit_name in self.usage_meta[identifier]:
+                managing_orgs.append(self.usage_meta[identifier][unit_name])
+        return managing_orgs
 
     def _get_managing_orgs(self, identifiers):
         """Gets names of managing organisation of identifiers.
@@ -172,8 +182,10 @@ class Usage(metaclass=ABCMeta):
     def calculate(self):
         # Get data by calling prepare and inserting manager field with managing organisations
         items, manager_field = self.prepare()
-        logger.debug('%d data has been retruned by prepare. manager_field is %s' % (len(items), manager_field))
+        logger.debug('%d data has been returned by prepare. manager_field is %s' % (len(items), manager_field))
 
+        # managers is the short of managing organisations: always biller and managerunit (school)
+        # person manager is not included on 20170428.
         managers = self._get_managing_orgs(set(item[manager_field] for item in items))
         for item in items:
             item['manager'] = managers[item[manager_field]]
@@ -187,6 +199,8 @@ class NovaUsage(Usage):
     def __init__(self, start, end, crm_client, workers=1):
         super().__init__(start, end)
         self.crm_client = crm_client
+        # usage_meta is a dict which has OpenstackID as key and all other information of a product (Nectar Allocation)
+        self.usage_meta = array_to_dict(self.crm_client.get('/nectar/'), 'OpenstackID')
         self.concurrent_workers = workers
 
     def _get_state(self, instance_id):
@@ -206,26 +220,6 @@ class NovaUsage(Usage):
         else:
             return [], 'tenant'
 
-    def _get_managing_orgs_of(self, openstack_id):
-        """Gets managing organisations of a tenant by its openstack_id"""
-        qargs = {'openstack_id': openstack_id}
-        try:
-            # Get information from nectar service registration
-            tenant = self.crm_client.get('/nectar/', qargs)[0]
-        except IndexError:
-            raise NotFoundError
-
-        if tenant is None:
-            return []
-
-        # get manager role by email address
-        qargs = {'email': tenant['email']}
-        manager = self.crm_client.get('/role/', qargs)[0]
-
-        return self.crm_client. \
-            get_managing_org_names(manager['id'],
-                                   tenant['organisation_id'])
-
 
 class HpcUsage(Usage):
     """Calculates HPC Usage in a time period."""
@@ -233,18 +227,13 @@ class HpcUsage(Usage):
     def __init__(self, start, end, crm_client):
         super().__init__(start, end)
         self.crm_client = crm_client
+        self.usage_meta = array_to_dict(self.crm_client.get('/access/'), 'username')
 
-    def _get_managing_orgs_of(self, username):
-        """Gets managing organisations of a job by its owner(username)"""
-        qargs = {'username': username}
-        try:
-            account_role = self.crm_client.get('/account/', qargs)[0]
-        except IndexError:
-            raise NotFoundError
-
-        return self.crm_client. \
-            get_managing_org_names(account_role['role'],
-                                   account_role['billing_org'])
+    def _get_managing_orgs_of(self, identifier):
+        """Override parent method as the usage meta is not from Orders,
+           therefore there is no managerunit but unit as the secondary
+        """
+        return super()._get_managing_orgs_of(identifier, 'unit')
 
     def prepare(self):
         return hpc.Job.list(self.start_timestamp, self.end_timestamp), 'owner'
