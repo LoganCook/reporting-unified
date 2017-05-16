@@ -1,19 +1,46 @@
-# pylint: disable=C0111,W0212,W0611,E1102,W0703
+# pylint: disable=C0301,C0111,W0212,W0611,E1102,W0703
+import ssl
+import sys
 import json
 import base64
 import hashlib
+import logging
 
 from argparse import ArgumentParser
-import logging
 
 from boto.s3.connection import S3Connection
 
 # HCP #facepalm
-import ssl
 if hasattr(ssl, '_create_unverified_context'):
     ssl._create_default_https_context = ssl._create_unverified_context
 
 logging.getLogger("boto").setLevel(logging.WARNING)
+
+
+def prepare_client():
+    """Prepare a client to connect bucket (namespace)
+     with the information from config json file provided by command line argument
+
+    If any exception rasied inside the function, the script will exit.
+
+    :return tuple, first is Namespace instance, the second is conf dict in case there are extra information
+    """
+    if len(sys.argv) < 2:
+        print('Missing positional argument of path to config json file.')
+        sys.exit(0)
+
+    try:
+        conf_path = sys.argv[1]
+        with open(conf_path, 'r') as fha:
+            conf = json.load(fha)
+    except Exception:
+        sys.exit('Failed to read conf json file %s' % conf_path)
+
+    try:
+        namespace_client = Namespace(conf['ID'], conf['SECRET'], conf['ENDPOINT'], conf['BUCKET'])
+        return namespace_client, conf
+    except Exception:
+        sys.exit('Cannot create bucket: make sure names of key are correct.')
 
 
 class Namespace:
@@ -50,8 +77,7 @@ class Namespace:
         # will cause 409 Conflict error
         if name:
             return self.bucket.new_key(name).set_contents_from_filename(path)
-        else:
-            return self.bucket.new_key(path).set_contents_from_filename(path)
+        return self.bucket.new_key(path).set_contents_from_filename(path)
 
     def get(self, name):
         """Get the content of a key as a string
@@ -91,31 +117,31 @@ class Namespace:
 
 
 if __name__ == "__main__":
-    with open('hcp_only_rw_config.json', 'r') as f:
-        conf = json.load(f)
-
-    logger = logging.getLogger(__name__)
 
     logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)s %(asctime)s %(filename)s.%(funcName)s +%(lineno)d: %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S')
 
-    logger.debug(conf)
-    store_id = conf['ID']
-    store_secret = conf['SECRET']
-    store_url = conf['ENDPOINT']
-    bucket = conf['BUCKET']
+    logger = logging.getLogger(__name__)
 
-    client = Namespace(store_id, store_secret, store_url, bucket)
+    # with open('hcp_only_rw_config.json', 'r') as f:
+    #     conf = json.load(f)
+    # store_id = conf['ID']
+    # store_secret = conf['SECRET']
+    # store_url = conf['ENDPOINT']
+    # bucket = conf['BUCKET']
+
+    # client = Namespace(store_id, store_secret, store_url, bucket)
+    client, conf = prepare_client()
+    logger.debug(conf)
+
     # client.upload('/home/li/Documents/ersa/reporting-unified/bin/hcp.py', '/alder/nectar/hcp.py')
-    client.download('/alder/nectar/0/000000000-000156999.json.xz', '000000000-000156999.json.xz')
-    exit(0)
+    # client.download('/alder/nectar/0/000000000-000156999.json.xz', '000000000-000156999.json.xz')
     # client.put('/dummy/filename', 'good')
     # client.delete('hcp.py')
     # client.delete('/dummy/filename')
     # client.delete('/dummy/')
-    last_key = ''
-    for item in client.list('20160113-112448/tizard.pbs/', folder_only=True):
+    for item in client.list(folder_only=True):
         # logger.debug(dir(item))
         # logger.debug(item.name)
         logger.debug("%s", item.name)
@@ -123,9 +149,6 @@ if __name__ == "__main__":
             logger.debug("%s %s", item.name, item.last_modified)
         else:
             logger.debug("%s", item.name)
-        # if item.name <= last_key:
-        #     logger.warn("The order sent back by Namespace is wrong: last %s > %s", last_key, item.name)
-
     # k = client.bucket.get_key('20160113-112448/tizard.pbs/1/000001867724-000001867808.json.xz')
     # logger.debug(dir(k))
     # logger.debug(k.last_modified)
