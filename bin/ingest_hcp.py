@@ -15,7 +15,7 @@ if __name__ == "__main__":
         sys.exit(2)
 
     end_point = conf['DB_API']['ENDPOINT']
-    log_file = "%s.log" % end_point[end_point.index('/')+2:].replace('/', '_')
+    log_file = "%s.log" % end_point[end_point.index('/') + 2:].replace('/', '_')
     # In case there is a / at the end of end point
     log_file = log_file.replace('_.log', '.log')
 
@@ -27,4 +27,7 @@ if __name__ == "__main__":
     logger.debug('Start an ingest job')
 
     ingester = Ingester(conf)
-    ingester.batch()
+    try:
+        ingester.batch()
+    except Exception as err:
+        logger.error('Batch ingest failed. %s', err)

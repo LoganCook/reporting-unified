@@ -1,16 +1,6 @@
-# These should be set
-# import logging is for tests
-import logging
-ERSA_REPORTING_PACKAGE = "YOUR_DB"
-ERSA_AUTH_TOKEN = "sometoken"
-SQLALCHEMY_DATABASE_URI = "postgresql://apiuser:YOUR_PASS@localhost/YOUR_DB"
-
-# These are optional
-LOG_DIR = "."
-LOG_LEVEL = logging.DEBUG
-LOG_SIZE = 30000000
-# 20160720: flask-sqlalchemy support of SQLALCHEMY_BINDS is questionable,
-# you may need patch
-SQLALCHEMY_BINDS = {
-    "ANOTHER_DIND": "postgresql://apiuser:YOUR_PASS@localhost/YOUR_ANOTHER_DB"
-}
+# Used for developing command line app
+SQLALCHEMY_TRACK_MODIFICATIONS = False
+SQLALCHEMY_DATABASE_URI = "postgresql://reporting:E07P2nzRZymzxGPw@130.220.211.169/xfs-20160115"
+DEBUG = True
+ERSA_REPORTING_PACKAGE = "xfs"
+ERSA_AUTH_TOKEN = "8c278bd8-7a57-457a-a84c-ae221141e38c"

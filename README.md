@@ -133,11 +133,13 @@ flask run -h 0.0.0.0 --reload
 gunicorn -e APP_SETTINGS=config-xfs.py --access-logfile - -b 0.0.0.0:5000 unified.apis.xfs:app
 ```
 
-## Scipts
+## Scripts
 
 ### Ingest
 
-The script needs `boto` package installed.
+The ingest scripts need `boto` package installed. Typical usage looks like this:
+
+`./ingest_hcp.py config_target.json`
 
 #### TODO: put description of ingest here
 

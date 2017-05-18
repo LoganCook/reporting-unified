@@ -8,54 +8,25 @@ Ingestion Tool
 Modified from ersa-reporting-ingest
 """
 
-import base64
-import hashlib
+import concurrent.futures
+import logging
 import json
 import lzma
 import os
-import random
 import time
-import requests
-import concurrent.futures
+import random
 
 from argparse import ArgumentParser
-from sys import exit
-import logging
 
-from boto.s3.connection import S3Connection
+import requests
 
-# HCP #facepalm
-import ssl
-if hasattr(ssl, '_create_unverified_context'):
-    ssl._create_default_https_context = ssl._create_unverified_context
+from hcp import Namespace
+
 
 logger = logging.getLogger('reporting-ingest')
 
 DEBUG = True
-
-
-# TODO: move to another place for better sharing with other packages
-class HCP:
-    def __init__(self, aws_id, aws_secret, server, bucket):
-        aws_id = base64.b64encode(bytes(aws_id, "utf-8")).decode()
-        aws_secret = hashlib.md5(bytes(aws_secret, "utf-8")).hexdigest()
-        hs3 = S3Connection(aws_access_key_id=aws_id,
-                           aws_secret_access_key=aws_secret,
-                           host=server)
-        self.bucket = hs3.get_bucket(bucket)
-
-    def exists(self, name):
-        return name in self.bucket
-
-    def put(self, name, data):
-        self.bucket.new_key(name).set_contents_from_string(data)
-
-    def get(self, name):
-        return self.bucket.get_key(name,
-                                   validate=False).get_contents_as_string()
-
-    def items(self, prefix=None):
-        return self.bucket.list(prefix=prefix)
+TIMEOUT = 10  #timeout of request.get
 
 
 class Ingester:
@@ -84,26 +55,36 @@ class Ingester:
         self.substring = conf['HCP'].get('SUBSTRING', '')
 
         try:
-            self.hcp = HCP(store_id, store_secret, store_url, bucket)
+            self.hcp = Namespace(store_id, store_secret, store_url, bucket)
         except Exception:
             raise ConnectionError("Cannot connect object store.")
 
-        logger.debug('Ingest from store prefix %s into %s' % (self.prefix, self.endpoint))
+        logger.debug('Ingest from store prefix %s into %s', self.prefix, self.endpoint)
 
     def _make_request(self, query):
         url = "%s/%s" % (self.endpoint, query)
-        return requests.get(url, headers={"x-ersa-auth-token": self.token})
+        try:
+            return requests.get(url,
+                                headers={"x-ersa-auth-token": self.token},
+                                timeout=TIMEOUT)
+        except requests.ConnectTimeout:
+            logger.warning('Request to %s timed out', query)
+            return None
 
-    def _verify_exist(self, rst):
+    @staticmethod
+    def _verify_exist(rst):
         """Check the response for verifying existence"""
+        if not rst:
+            return False
+
         if rst.status_code == 204:
             # ingested successfully will receive 204 not 200
             return True
         elif rst.status_code == 200:
             return len(rst.json()) > 0
-        else:
-            logger.error("HTTP error %d" % rst.status_code)
-            return False
+
+        logger.error("HTTP error %d", rst.status_code)
+        return False
 
     def check_input(self, name):
         query = "input?filter=name.eq.%s" % name
@@ -119,8 +100,22 @@ class Ingester:
                             data=json.dumps(data))
 
     def fetch(self, name):
-        logger.debug("Retrieve and decompress %s from HCP" % name)
+        logger.debug("Retrieve and decompress %s from HCP", name)
         return json.loads(lzma.decompress(self.hcp.get(name)).decode("utf-8"))
+
+    def get_latest_input(self):
+        """Get the latest input from database
+
+        This can be used as a marker for list objects from HCP
+        """
+        # TODO: this is not very helpful: we have to find out the latest of each partition
+        query = "input?order=-name&count=1"
+        logger.debug(query)
+        rst = self._make_request(query)
+        if self._verify_exist(rst):
+            return rst.json()[0]['name']
+
+        return ''
 
     def list_ingested(self):
         """List the ingested messages files in input table of database through API server"""
@@ -130,23 +125,28 @@ class Ingester:
 
         while True:
             url = "%s/input?count=%d&page=%s" % (self.endpoint, SIZE, page)
-            batch = requests.get(url, headers={"x-ersa-auth-token": self.token})
-            # This is for back compatibility in case 404 for no data
-            if batch.status_code == 404:
-                break
-            elif batch.status_code != 200:
-                raise IOError("HTTP %s" % batch.status_code)
-
-            # new code always has status_code == 200 but json can be empty list
-            records = batch.json()
-            if len(records) > 0:
-                names += [item["name"] for item in batch.json()]
-                logger.debug("%d page loaded" % page)
-                page += 1
-                if len(records) < SIZE:
-                    break
+            try:
+                batch = requests.get(url, headers={"x-ersa-auth-token": self.token}, timeout=TIMEOUT)
+            except requests.ConnectTimeout:
+                logger.warning('Query to DB for input timed out. url=%s', url)
+                raise RuntimeError('Cannot connnect to DB')
             else:
-                break
+                # This is for back compatibility in case 404 for no data
+                if batch.status_code == 404:
+                    break
+                elif batch.status_code != 200:
+                    raise IOError("HTTP %s" % batch.status_code)
+
+                # new code always has status_code == 200 but json can be empty list
+                records = batch.json()
+                if len(records) > 0:
+                    names += [item["name"] for item in batch.json()]
+                    logger.debug("%d pages loaded", page)
+                    page += 1
+                    if len(records) < SIZE:
+                        break
+                else:
+                    break
 
         return names
 
@@ -158,7 +158,7 @@ class Ingester:
         ingested = set(ingested)
 
         logger.debug("Get list of archived packages of messages from object store")
-        all_items = [item.name for item in self.hcp.items(prefix=self.prefix)
+        all_items = [item.name for item in self.hcp.list(prefix=self.prefix)
                      if not item.name.endswith("/")]
 
         if self.substring:
@@ -168,8 +168,8 @@ class Ingester:
 
         todo = list(all_items - ingested)
 
-        logger.info("%s objects, %s already ingested, %s todo" %
-                    (len(all_items), len(ingested.intersection(all_items)), len(todo)))
+        logger.info("%s objects, %s already ingested, %s todo",
+                    len(all_items), len(ingested.intersection(all_items)), len(todo))
 
         return todo
 
@@ -188,12 +188,12 @@ class Ingester:
 
             success = self._verify_exist(self._put(tracking_name, data))
             if not success:
-                logger.error("%s was not ingested" % name)
+                logger.error("%s was not ingested", name)
 
     def _log_put(self, tracking_name, data):
         success = self._verify_exist(self._put(tracking_name, data))
         if not success:
-            logger.error("%s was not ingested" % tracking_name)
+            logger.error("%s was not ingested", tracking_name)
 
     def put_single_xz(self, xz_name, input_name):
         # This deal with local files for debug purpose, it will ingest each message separately in a xz file
@@ -205,7 +205,7 @@ class Ingester:
     def put_local_xz(self, xz_name, input_name, check=False):
         # By default not check if exist as it can be very slow
         if check and self.check_input(input_name):
-            logger.debug("Cannot ingest %s because it has been ingested before as the name %s is found in database." % (xz_name, input_name))
+            logger.debug("Cannot ingest %s because it has been ingested before as the name %s is found in database.", xz_name, input_name)
         else:
             self.put_single_xz(xz_name, input_name)
 
