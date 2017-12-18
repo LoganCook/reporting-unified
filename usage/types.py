@@ -200,7 +200,7 @@ class NovaUsage(Usage):
         super().__init__(start, end)
         self.crm_client = crm_client
         # usage_meta is a dict which has OpenstackID as key and all other information of a product (Nectar Allocation)
-        self.usage_meta = array_to_dict(self.crm_client.get('/nectar/'), 'OpenstackID')
+        self.usage_meta = array_to_dict(self.crm_client.get('/v2/contract/nectarcloudvm/'), 'OpenstackID')
         self.concurrent_workers = workers
 
     def _get_state(self, instance_id):

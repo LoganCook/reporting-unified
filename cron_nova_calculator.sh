@@ -5,7 +5,7 @@
 year=`TZ='Australia/Adelaide' date +%Y`
 month=`TZ='Australia/Adelaide' date +%m`
 
-lastmonth=$((month-1))
+lastmonth=$((10#$month-1))
 if [ $lastmonth -eq 0 ]; then
     month=12
     year=$((year-1))
@@ -21,6 +21,6 @@ if [ $? ]; then
     # there should be only one file, just in case
     jsonlist=($(ls -t NovaUsage_*.json))
     if (( ${#jsonlist[@]} > 0 )); then
-        sudo cp ${jsonlist[0]} /usr/share/nginx/html/reporting/usage/nova/ && sudo cp ${jsonlist[0]} /usr/share/nginx/html/institution/usage/nova/ &&rm ${jsonlist[0]}
+        sudo cp ${jsonlist[0]} /usr/share/nginx/html/reporting/usage/nova/ && sudo cp ${jsonlist[0]} /usr/share/nginx/html/institution/usage/nova/ && rm ${jsonlist[0]}
     fi
 fi
