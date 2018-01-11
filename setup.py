@@ -7,11 +7,11 @@ import glob
 from setuptools import setup
 
 setup(name="ersa-reporting",
-      version="2.0.0",
+      version="2.1.0",
       install_requires=["flask>=0.10.1", "flask-restful", "flask-cors",
                         "flask-sqlalchemy", "psycopg2", "requests", "arrow",
                         "python-keystoneclient", "python-novaclient"],
-      py_modules=["nectar"],
+      py_modules=["nectar", "utils"],
       packages=["unified", "unified.apis", "unified.models"],
       scripts=["bin/gconf_generator.sh",
                "bin/service_generator.sh",

@@ -17,10 +17,10 @@ The package only works with PostgreSQL because it uses:
 0. Create tables from either command:
 
   ```shell
-  bin/ersa_reporting-prep ersa_reporting.PACKAGE
+  bin/ersa-reporting-prep ersa_reporting.PACKAGE
   # or
   export APP_SETTINGS=config.py
-  bin/unified-apis-prep PACKAGE
+  bin/ersa-reporting-prep-tables PACKAGE
   ```
 
 ### `unified` package

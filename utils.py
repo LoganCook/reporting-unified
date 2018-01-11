@@ -1,8 +1,11 @@
 import json
 import logging
+import datetime
+import pytz
 
 
 logger = logging.getLogger(__name__)
+
 
 def print_json(jobj):
     print(json.dumps(jobj, indent=2))
@@ -50,3 +53,20 @@ def repack(dict_obj, key_map, rm_keys=[]):
         del dict_obj[k]
 
     return dict_obj
+
+
+def parse_date_string(date_string, tz='Australia/Adelaide', fmt='%Y%m%d'):
+    """Parse a date string of a given timezone and return timestamp of it
+    at the begining of the day:
+
+    20170101 (Sunday 1 January  00:00:00 ACDT 2017) -> 1483191000
+
+    date_string: string, e.g. 20170101 or 2017-01-01
+    tz: string, official time zone string, default is Australia/Adelaide
+    fmt: string, the format of date_string, default is %Y%m%d
+    return int timestamp
+    """
+    target_tz = pytz.timezone(tz)
+    local_date = datetime.datetime.strptime(date_string, fmt)
+    target_date = target_tz.localize(local_date)
+    return int(target_date.timestamp())

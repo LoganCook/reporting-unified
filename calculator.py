@@ -8,29 +8,15 @@ import time
 import inspect
 import datetime
 import calendar
-import pytz
 
 import logging
 import logging.handlers
 
 
 from argparse import ArgumentParser
-
+from utils import parse_date_string
 
 DAY_IN_SECS = 86399  # 24 * 60 * 60 - 1
-
-
-# Currently, it does not support change targeted timezone
-def parse_date_string(date_string, tz='Australia/Adelaide'):
-    """Parse a date string into target timezone and return timestamp of it
-
-    date_string: %Y%m%d, e.g. 20170101
-    return int timestamp
-    """
-    target_tz = pytz.timezone(tz)
-    local_date = datetime.datetime.strptime(date_string, '%Y%m%d')
-    target_date = target_tz.localize(local_date)
-    return int(target_date.timestamp())
 
 
 def month_ends(year, month):
