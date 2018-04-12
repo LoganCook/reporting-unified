@@ -1,10 +1,9 @@
-from sqlalchemy import PrimaryKeyConstraint, distinct
-from sqlalchemy.sql import func
+from sqlalchemy import PrimaryKeyConstraint
 from . import db
 
 
 class Instance(db.Model):
-    """Virtual machine instances information reported by VRB vms report"""
+    """Monthly report of virtual machine instances produced by VRB vms report"""
     server_id = db.Column(db.String(), nullable=False)
     server = db.Column(db.String(), nullable=False)
     core = db.Column(db.SmallInteger, nullable=False)
@@ -13,6 +12,8 @@ class Instance(db.Model):
     os = db.Column(db.String(), nullable=False)
     business_unit = db.Column(db.String(), nullable=False)
     span = db.Column(db.Integer)
+    # Monthly Up Time (%)
+    uptime_percent = db.Column(db.Float)
     # timestamp of the start of reporting month
     month = db.Column(db.Integer)
     __table_args__ = (PrimaryKeyConstraint('server_id', 'month', name='pk_instance'),)
@@ -28,7 +29,8 @@ class Instance(db.Model):
             "os": self.os,
             "businessUnit": self.business_unit,
             "span": self.span,
-            "month": self.month           
+            "uptimePercent": self.uptime_percent,
+            "month": self.month
         }
 
     @classmethod
@@ -40,7 +42,7 @@ class Instance(db.Model):
             query = query.filter(Instance.month >= start_ts)
         if end_ts > 0:
             query = query.filter(Instance.month < end_ts)
-        fields = ('id', 'server', 'core', 'ram', 'storage', 'os', 'businessUnit', 'span')
+        fields = ('id', 'server', 'core', 'ram', 'storage', 'os', 'businessUnit', 'span', 'uptimePercent')
         return [dict(zip(fields, q)) for q in query.
                 with_entities(Instance.server_id,
                               Instance.server,
@@ -49,4 +51,5 @@ class Instance(db.Model):
                               Instance.storage,
                               Instance.os,
                               Instance.business_unit,
-                              Instance.span)]
+                              Instance.span,
+                              Instance.uptime_percent)]
