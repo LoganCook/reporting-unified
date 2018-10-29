@@ -2,8 +2,6 @@
 import ssl
 import sys
 import json
-import base64
-import hashlib
 import logging
 
 from argparse import ArgumentParser
@@ -46,8 +44,6 @@ def prepare_client():
 class Namespace:
     """Manage a namespace on Hitachi Content Platform using boto"""
     def __init__(self, aws_id, aws_secret, server, bucket):
-        aws_id = base64.b64encode(bytes(aws_id, "utf-8")).decode()
-        aws_secret = hashlib.md5(bytes(aws_secret, "utf-8")).hexdigest()
         hs3 = S3Connection(aws_access_key_id=aws_id,
                            aws_secret_access_key=aws_secret,
                            host=server)
