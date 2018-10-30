@@ -42,12 +42,12 @@ def prepare_client():
 
 
 class Namespace:
-    """Manage a namespace on Hitachi Content Platform using boto"""
+    """Manage a namespace on AWS S3 using boto"""
     def __init__(self, aws_id, aws_secret, server, bucket):
-        hs3 = S3Connection(aws_access_key_id=aws_id,
-                           aws_secret_access_key=aws_secret,
-                           host=server)
-        self.bucket = hs3.get_bucket(bucket)
+        aws_s3 = S3Connection(aws_access_key_id=aws_id,
+                              aws_secret_access_key=aws_secret,
+                              host=server)
+        self.bucket = aws_s3.get_bucket(bucket)
 
     def exists(self, name):
         return name in self.bucket
@@ -119,37 +119,13 @@ if __name__ == "__main__":
                         datefmt='%Y-%m-%d %H:%M:%S')
 
     logger = logging.getLogger(__name__)
-
-    # with open('hcp_only_rw_config.json', 'r') as f:
-    #     conf = json.load(f)
-    # store_id = conf['ID']
-    # store_secret = conf['SECRET']
-    # store_url = conf['ENDPOINT']
-    # bucket = conf['BUCKET']
-
-    # client = Namespace(store_id, store_secret, store_url, bucket)
     client, conf = prepare_client()
     logger.debug(conf)
 
-    # client.upload('/home/li/Documents/ersa/reporting-unified/bin/hcp.py', '/alder/nectar/hcp.py')
-    # client.download('/alder/nectar/0/000000000-000156999.json.xz', '000000000-000156999.json.xz')
-    # client.put('/dummy/filename', 'good')
-    # client.delete('hcp.py')
-    # client.delete('/dummy/filename')
-    # client.delete('/dummy/')
     for item in client.list(folder_only=True):
-        # logger.debug(dir(item))
-        # logger.debug(item.name)
         logger.debug("%s", item.name)
         if hasattr(item, 'last_modified'):
             logger.debug("%s %s", item.name, item.last_modified)
         else:
             logger.debug("%s", item.name)
-    # k = client.bucket.get_key('20160113-112448/tizard.pbs/1/000001867724-000001867808.json.xz')
-    # logger.debug(dir(k))
-    # logger.debug(k.last_modified)
-    # # something is wrong here: GMT not GMT at all or mktime screwed ?
-    # logger.debug(int(time.mktime(time.strptime(k.last_modified, '%a, %d %b %Y %H:%M:%S %Z'))))
 
-    # for item in client.items('20160113-112448/tizard.pbs/1'):
-    #     logger.debug(item)

@@ -4,7 +4,7 @@
     "TOKEN": "secret",
     "SCHEMA": "schema matches to db api: e.g. pbs.accounting.log"
   },
-  "HCP": {
+  "AWS": {
     "ID": "access account",
     "SECRET": "secret",
     "ENDPOINT": "object storage url",

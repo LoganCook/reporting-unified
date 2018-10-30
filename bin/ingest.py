@@ -20,7 +20,7 @@ from argparse import ArgumentParser
 
 import requests
 
-from hcp import Namespace
+from aws import Namespace
 
 
 logger = logging.getLogger('reporting-ingest')
@@ -44,18 +44,18 @@ class Ingester:
             self.token = conf['DB_API']['TOKEN']
             self.schema = conf['DB_API'].get('SCHEMA', '')
 
-            store_id = conf['HCP']['ID']
-            store_secret = conf['HCP']['SECRET']
-            store_url = conf['HCP']['ENDPOINT']
-            bucket = conf['HCP']['BUCKET']
+            store_id = conf['AWS']['ID']
+            store_secret = conf['AWS']['SECRET']
+            store_url = conf['AWS']['ENDPOINT']
+            bucket = conf['AWS']['BUCKET']
         except Exception as e:
             raise KeyError("Configuration key error: %s" % str(e))
 
-        self.prefix = conf['HCP'].get('PREFIX', '')
-        self.substring = conf['HCP'].get('SUBSTRING', '')
+        self.prefix = conf['AWS'].get('PREFIX', '')
+        self.substring = conf['AWS'].get('SUBSTRING', '')
 
         try:
-            self.hcp = Namespace(store_id, store_secret, store_url, bucket)
+            self.aws = Namespace(store_id, store_secret, store_url, bucket)
         except Exception:
             raise ConnectionError("Cannot connect object store.")
 
@@ -100,15 +100,17 @@ class Ingester:
                             data=json.dumps(data))
 
     def fetch(self, name):
-        logger.debug("Retrieve and decompress %s from HCP", name)
-        return json.loads(lzma.decompress(self.hcp.get(name)).decode("utf-8"))
+        logger.debug("Retrieve and decompress %s from AWS", name)
+        return json.loads(lzma.decompress(self.aws.get(name)).decode("utf-8"))
 
     def get_latest_input(self):
         """Get the latest input from database
 
-        This can be used as a marker for list objects from HCP
+        This can be used as a marker for list objects from AWS
         """
         # TODO: this is not very helpful: we have to find out the latest of each partition
+        # FIXME: Finding the last input based on the name is not always reliable
+        #        because not all object names follow the same sortable convention.
         query = "input?order=-name&count=1"
         logger.debug(query)
         rst = self._make_request(query)
@@ -129,7 +131,7 @@ class Ingester:
                 batch = requests.get(url, headers={"x-ersa-auth-token": self.token}, timeout=TIMEOUT)
             except requests.ConnectTimeout:
                 logger.warning('Query to DB for input timed out. url=%s', url)
-                raise RuntimeError('Cannot connnect to DB')
+                raise RuntimeError('Cannot connect to DB')
             else:
                 # This is for back compatibility in case 404 for no data
                 if batch.status_code == 404:
@@ -151,14 +153,14 @@ class Ingester:
         return names
 
     def _prepare_batch_list(self):
-        """Query input table and process json.xz in hcp which have not been ingested"""
+        """Query input table and process json.xz in AWS which have not been ingested"""
         # The list can be very long if prefix is not used
         logger.debug("Getting list of archived packages of messages from database through API")
         ingested = self.list_ingested()
         ingested = set(ingested)
 
         logger.debug("Get list of archived packages of messages from object store")
-        all_items = [item.name for item in self.hcp.list(prefix=self.prefix)
+        all_items = [item.name for item in self.aws.list(prefix=self.prefix)
                      if not item.name.endswith("/")]
 
         if self.substring:
@@ -220,7 +222,7 @@ def read_conf(path):
     return conf
 
 
-def parse_command(description='Ingest records from HCP to Database through API server'):
+def parse_command(description='Ingest records from AWS to Database through API server'):
     parser = ArgumentParser(description=description)
     parser.add_argument('conf', default='config.json',
                         help='Path to config.json. Default = config.json')

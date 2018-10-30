@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
-"""python script to manage database backups in HCP"""
+"""python script to manage database backups in AWS"""
 
 
 import re
 import time
 import logging
 
-from hcp import prepare_client
+from aws import prepare_client
 
 
 def _reconstruct_backup_fn(db_name, backup_date):
