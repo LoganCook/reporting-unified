@@ -139,9 +139,9 @@ gunicorn -e APP_SETTINGS=config-xfs.py --access-logfile - -b 0.0.0.0:5000 unifie
 
 The ingest scripts need `boto` package installed. Typical usage looks like this:
 
-`./ingest_hcp.py config_target.json`
+`./ingest_aws.py config_target.json`
 
-#### TODO: put description of ingest here
+This is used to ingest usage objects stored in AWS to the database through the API.
 
 ### Biller script `biller.py` - FIXME with unified models
 

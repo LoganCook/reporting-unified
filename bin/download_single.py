@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-"""Download a file from HCP and save to curent directory
+"""Download a file from AWS and save to curent directory
    for debugging.
 """
 
 import sys
 from argparse import ArgumentParser
 
-from hcp import Namespace
+from aws import Namespace
 from ingest import read_conf
 
 
-def parse_command(description='Download a file from HCP and save to curent directory'):
+def parse_command(description='Download a file from AWS and save to curent directory'):
     parser = ArgumentParser(description=description)
     parser.add_argument('name', help='Key name of an object to be downloaded')
     parser.add_argument('--conf', default='debugger_api_conf.json', help='Path to config.json. Default = debugger_api_conf.json')
@@ -27,8 +27,8 @@ if __name__ == "__main__":
         sys.exit(2)
 
     conf = read_conf(conf_file)
-    if 'HCP' in conf:
-        conf = conf['HCP']
+    if 'AWS' in conf:
+        conf = conf['AWS']
 
     namespace_client = Namespace(conf['ID'], conf['SECRET'], conf['ENDPOINT'], conf['BUCKET'])
 

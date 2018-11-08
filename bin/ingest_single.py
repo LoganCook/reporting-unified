@@ -10,7 +10,7 @@ from argparse import ArgumentParser
 
 from ingest import Ingester, read_conf
 
-def parse_command(description='Ingest records from HCP to Database through API server'):
+def parse_command(description='Ingest records from AWS to Database through API server'):
     parser = ArgumentParser(description=description)
     parser.add_argument('name', help='Path to the json.xz file to be ingested')
     parser.add_argument('-t', '--tracker', default='', help='A string, commonly name of an object in store')
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # It only needs DB_API of a normal conf file: API end point, secret and optional schema
     # But currently Ingester is not flexible for it.
     try:
-        file_name, tracker, conf_file = parse_command('Ingest records from HCP to Database through API server')
+        file_name, tracker, conf_file = parse_command('Ingest records from AWS to Database through API server')
     except Exception as e:
         logging.error(e)
         sys.exit(2)

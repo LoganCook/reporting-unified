@@ -9,7 +9,7 @@ logger = logging.getLogger('reporting-ingest')
 
 if __name__ == "__main__":
     try:
-        conf = parse_command('Ingest records from HCP to Database through API server')
+        conf = parse_command('Ingest records from AWS to Database through API server')
     except Exception as e:
         logger.error(e)
         sys.exit(2)

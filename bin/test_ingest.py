@@ -6,8 +6,8 @@ from ingest import read_conf, Ingester
 
 
 class IngestTestCase(unittest.TestCase):
-    @patch('ingest.HCP', return_value=None)
-    def test_list_ingested(self, mock_hcp):
+    @patch('ingest.AWS', return_value=None)
+    def test_list_ingested(self, mock_aws):
         conf = read_conf('example-config.json')
         ingester = Ingester(conf)
         self.assertIsNotNone(ingester)
