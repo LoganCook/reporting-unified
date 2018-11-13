@@ -8,10 +8,6 @@ from argparse import ArgumentParser
 
 from boto.s3.connection import S3Connection
 
-# HCP #facepalm
-if hasattr(ssl, '_create_unverified_context'):
-    ssl._create_default_https_context = ssl._create_unverified_context
-
 logging.getLogger("boto").setLevel(logging.WARNING)
 
 
