@@ -14,12 +14,16 @@ LOG_FORMATTER = logging.Formatter(LOG_FORMAT, SAN_MS_DATE)
 app = Flask("app")
 app.config.from_envvar('APP_SETTINGS')
 
-# Apply pessimistic database connection checking provided by sqlalchemy, see:
-# https://docs.sqlalchemy.org/en/latest/core/pooling.html#pool-disconnects-pessimistic
-# https://github.com/mitsuhiko/flask-sqlalchemy/issues/589#issuecomment-361075700
+
 class SQLAlchemy(SA):
+    """Apply pessimistic database connection checking provided by sqlalchemy, see:
+        https://docs.sqlalchemy.org/en/latest/core/pooling.html#pool-disconnects-pessimistic
+        https://github.com/mitsuhiko/flask-sqlalchemy/issues/589#issuecomment-361075700
+    """
+
     def apply_pool_defaults(self, app, options):
         SA.apply_pool_defaults(self, app, options)
         options["pool_pre_ping"] = True
+
 
 db = SQLAlchemy(app)

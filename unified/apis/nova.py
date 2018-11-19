@@ -160,7 +160,7 @@ class InstanceLatestState(RangeQuery):
     def _get(self, id='', **kwargs):
         try:
             uuid.UUID(id)
-        except:
+        except ValueError:
             return {}
 
         self.default = rslt = {}

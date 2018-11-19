@@ -93,7 +93,7 @@ def is_uuid(id):
     """Verify if a string is an UUID"""
     try:
         v = uuid.UUID(id)
-    except:
+    except ValueError:
         v = None
     return isinstance(v, uuid.UUID)
 
@@ -189,7 +189,7 @@ def require_auth(func):
         try:
             token = str(uuid.UUID(request.headers.get("x-ersa-auth-token",
                                                       ""))).lower()
-        except:
+        except:     # noqa: E722
             return "", 403
 
         if AUTH_TOKEN is not None:

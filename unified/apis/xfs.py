@@ -77,8 +77,7 @@ class IngestResource(BaseIngestResource):
                                 filesystem.id
                             ]
 
-                            tsv.write("\t".join([str(c) for c in columns]) +
-                                      "\n")
+                            tsv.write("\t".join([str(c) for c in columns]) + "\n")
 
             if ingest_pass == 2:
                 tsv.seek(0)

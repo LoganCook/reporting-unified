@@ -85,7 +85,7 @@ class IngestResource(BaseIngestResource):
                 if "allocation_id" in tenant_detail:
                     try:
                         tenant.allocation = int(tenant_detail["allocation_id"])
-                    except:
+                    except ValueError:
                         pass
 
                 if "users" not in tenant_detail:

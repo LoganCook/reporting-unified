@@ -52,6 +52,7 @@ class TenantTestCase(unittest.TestCase):
                         total[k] = total[k] - ns[k]
                 self.assertTrue(all(total[checking] == 0 for checking in key_items))
 
+
 class UsageSummaryTestCase(unittest.TestCase):
     def test_now(self):
         rslt = Usage.summarise(now)

@@ -17,7 +17,7 @@ class HCPTestCase(unittest.TestCase):
             rule = route.rule
             # top objects' have pattern of /blar
             # ingest only accept PUT and OPTIONS
-            if rule not in ('/static/<path:filename>', '/ingest') and 'summary' not in rule  and 'list' not in rule:
+            if rule not in ('/static/<path:filename>', '/ingest') and 'summary' not in rule and 'list' not in rule:
                 print('Testing %s' % rule)
                 resp = get('%s?count=10' % rule)
                 data = json.loads(resp.data)
